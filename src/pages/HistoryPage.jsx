@@ -7,32 +7,8 @@ import { formatDateTime } from "../utils/formatDate";
 
 // Mock data
 const MOCK = {
-  data: Array.from({ length: 23 }, (_, i) => ({
-    id: String(i + 1),
-    clientName: [
-      "Metalúrgica SP",
-      "Grupo Horizonte",
-      "Tech Solutions",
-      "Distribuidora Norte",
-      "Construtora Delta",
-      "Agro Brasil",
-      "Varejo Express",
-      "Logística Sul",
-    ][i % 8],
-    clientId: `CLI${String(i + 1).padStart(3, "0")}`,
-    consultantName: [
-      "Ricardo Alves",
-      "Ana Costa",
-      "Carlos Mendes",
-      "Fernanda Lima",
-    ][i % 4],
-    status: ["COMPLETED", "COMPLETED", "ERROR", "COMPLETED", "ANALYZING"][
-      i % 5
-    ],
-    createdAt: new Date(Date.now() - i * 3600000 * 4).toISOString(),
-    alertCount: Math.floor(Math.random() * 4),
-  })),
-  pagination: { page: 1, limit: 10, total: 23, totalPages: 3 },
+  data: [],
+  pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
 };
 
 export default function HistoryPage() {

@@ -4,55 +4,7 @@ import { useAlerts } from "../hooks/useAlerts";
 import { Filter } from "lucide-react";
 
 // Mock data for demo
-const MOCK_ALERTS = [
-  {
-    id: "1",
-    type: "CHURN_RISK",
-    severity: 5,
-    excerpt:
-      "Se o problema não for resolvido nos próximos 30 dias, precisamos reconsiderar.",
-    detail: null,
-    clientName: "Metalúrgica SP",
-    consultantName: "Ricardo Alves",
-    createdAt: new Date().toISOString(),
-    status: "OPEN",
-  },
-  {
-    id: "2",
-    type: "COMPETITOR_MENTIONED",
-    severity: 4,
-    excerpt:
-      "O SAP foi mencionado pelo diretor como uma alternativa que estão avaliando.",
-    detail: "SAP",
-    clientName: "Grupo Horizonte",
-    consultantName: "Ana Costa",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    status: "OPEN",
-  },
-  {
-    id: "3",
-    type: "UPSELL_OPPORTUNITY",
-    severity: 3,
-    excerpt:
-      "Mostramos interesse em expandir o uso do Carol para análise de dados operacionais.",
-    detail: "Carol Analytics",
-    clientName: "Tech Solutions",
-    consultantName: "Carlos Mendes",
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-    status: "OPEN",
-  },
-  {
-    id: "4",
-    type: "CHURN_RISK",
-    severity: 4,
-    excerpt: "A renovação do contrato está em dúvida pelo time de diretoria.",
-    detail: null,
-    clientName: "Distribuidora Norte",
-    consultantName: "Fernanda Lima",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    status: "OPEN",
-  },
-];
+const MOCK_ALERTS = [];
 
 const TYPE_LABELS = {
   CHURN_RISK: "Churn Risk",

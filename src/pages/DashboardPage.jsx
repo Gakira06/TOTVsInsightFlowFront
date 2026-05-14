@@ -46,48 +46,7 @@ const MOCK_CHART = Array.from({ length: 30 }, (_, i) => {
   };
 });
 
-const MOCK_ANALYSES = [
-  {
-    id: "1",
-    clientName: "Metalúrgica São Paulo",
-    clientId: "CLI001",
-    consultant: "Ricardo Alves",
-    createdAt: new Date().toISOString(),
-    alerts: [{ type: "UPSELL_OPPORTUNITY" }],
-  },
-  {
-    id: "2",
-    clientName: "Grupo Horizonte",
-    clientId: "CLI002",
-    consultant: "Ana Costa",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    alerts: [{ type: "CHURN_RISK" }],
-  },
-  {
-    id: "3",
-    clientName: "Tech Solutions LTDA",
-    clientId: "CLI003",
-    consultant: "Carlos Mendes",
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-    alerts: [{ type: "COMPETITOR_MENTIONED" }],
-  },
-  {
-    id: "4",
-    clientName: "Distribuidora Norte",
-    clientId: "CLI004",
-    consultant: "Ricardo Alves",
-    createdAt: new Date(Date.now() - 10800000).toISOString(),
-    alerts: [],
-  },
-  {
-    id: "5",
-    clientName: "Construtora Delta",
-    clientId: "CLI005",
-    consultant: "Fernanda Lima",
-    createdAt: new Date(Date.now() - 14400000).toISOString(),
-    alerts: [{ type: "UPSELL_OPPORTUNITY" }],
-  },
-];
+const MOCK_ANALYSES = [];
 
 const MOCK_RANKING = [
   {
