@@ -6,9 +6,10 @@ export default function ClientPreview({ clientId }) {
   const { client, loading, error, fetchClient } = useClient();
 
   useEffect(() => {
-    if (clientId && clientId.length >= 3) {
-      fetchClient(clientId);
-    }
+    if (!clientId || clientId.length < 3) return;
+    // Debounce: evita disparar uma requisição a cada tecla digitada.
+    const timer = setTimeout(() => fetchClient(clientId), 400);
+    return () => clearTimeout(timer);
   }, [clientId, fetchClient]);
 
   if (!clientId || clientId.length < 3) return null;

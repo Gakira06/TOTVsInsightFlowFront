@@ -7,84 +7,10 @@ import {
   Mic,
   RefreshCw,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
 import KPICard from "../components/ui/KPICard";
 import StatusBadge from "../components/ui/StatusBadge";
 import { dashboardService, analysisService } from "../services/api";
 import { formatDateTime } from "../utils/formatDate";
-
-// --- Mock data for demo when backend not connected ---
-const MOCK_KPIS = {
-  totalAnalyses: 142,
-  upsellOpportunities: 38,
-  churnAlerts: 7,
-  avgTalkRatioConsultant: 58.4,
-  periodComparison: {
-    totalAnalysesVariation: 12,
-    upsellVariation: 8,
-    churnVariation: -3,
-    talkVariation: -2,
-  },
-};
-
-const MOCK_CHART = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - (29 - i));
-  return {
-    date: `${d.getDate()}/${d.getMonth() + 1}`,
-    total: Math.floor(Math.random() * 8) + 2,
-    churn: Math.floor(Math.random() * 3),
-  };
-});
-
-const MOCK_ANALYSES = [];
-
-const MOCK_RANKING = [
-  {
-    consultantId: "1",
-    consultantName: "Ricardo Alves",
-    totalAnalyses: 42,
-    avgTalkRatio: 55.2,
-    efficiencyScore: 94,
-  },
-  {
-    consultantId: "2",
-    consultantName: "Ana Costa",
-    totalAnalyses: 38,
-    avgTalkRatio: 58.7,
-    efficiencyScore: 89,
-  },
-  {
-    consultantId: "3",
-    consultantName: "Carlos Mendes",
-    totalAnalyses: 31,
-    avgTalkRatio: 62.1,
-    efficiencyScore: 82,
-  },
-  {
-    consultantId: "4",
-    consultantName: "Fernanda Lima",
-    totalAnalyses: 29,
-    avgTalkRatio: 53.4,
-    efficiencyScore: 91,
-  },
-  {
-    consultantId: "5",
-    consultantName: "Roberto Silva",
-    totalAnalyses: 18,
-    avgTalkRatio: 67.8,
-    efficiencyScore: 74,
-  },
-];
 
 const ALERT_BADGE = {
   UPSELL_OPPORTUNITY: {
@@ -122,13 +48,13 @@ function getAlertBadge(alerts) {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [kpis, setKpis] = useState(MOCK_KPIS);
-  const [chartData] = useState(MOCK_CHART);
-  const [analyses, setAnalyses] = useState(MOCK_ANALYSES);
-  const [ranking, setRanking] = useState(MOCK_RANKING);
+  const [kpis, setKpis] = useState(null);
+  const [analyses, setAnalyses] = useState([]);
+  const [ranking, setRanking] = useState([]);
   const [sortCol, setSortCol] = useState("totalAnalyses");
   const [sortDir, setSortDir] = useState("desc");
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -141,8 +67,9 @@ export default function DashboardPage() {
       setKpis(kpiData);
       setRanking(rankData);
       setAnalyses(analysisData.data);
-    } catch {
-      // keep mock data if backend unavailable
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err.message || "Não foi possível carregar o dashboard");
     } finally {
       setLoading(false);
     }
@@ -165,7 +92,7 @@ export default function DashboardPage() {
     }
   };
 
-  const cmp = kpis.periodComparison || {};
+  const cmp = kpis?.periodComparison || {};
 
   return (
     <div>
@@ -206,6 +133,22 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {loadError && (
+        <div
+          style={{
+            background: "rgba(224,82,82,0.1)",
+            border: "1px solid rgba(224,82,82,0.3)",
+            borderRadius: 8,
+            padding: "10px 16px",
+            marginBottom: 20,
+            color: "#E05252",
+            fontSize: 13,
+          }}
+        >
+          {loadError}
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div
         style={{
@@ -218,100 +161,32 @@ export default function DashboardPage() {
       >
         <KPICard
           title="Reuniões Analisadas"
-          value={kpis.totalAnalyses}
+          value={kpis ? kpis.totalAnalyses : "—"}
           icon={FileText}
           trend={cmp.totalAnalysesVariation}
           color="#0B9EBF"
         />
         <KPICard
           title="Upsell Detectados"
-          value={kpis.upsellOpportunities}
+          value={kpis ? kpis.upsellOpportunities : "—"}
           icon={TrendingUp}
           trend={cmp.upsellVariation}
           color="#3DB87A"
         />
         <KPICard
           title="Alertas de Churn"
-          value={kpis.churnAlerts}
+          value={kpis ? kpis.churnAlerts : "—"}
           icon={AlertTriangle}
           trend={cmp.churnVariation}
           color="#E05252"
         />
         <KPICard
           title="Talk-to-Listen Médio"
-          value={`${kpis.avgTalkRatioConsultant?.toFixed(1)}%`}
+          value={kpis ? `${(kpis.avgTalkRatioConsultant ?? 0).toFixed(1)}%` : "—"}
           icon={Mic}
           trend={cmp.talkVariation}
-          color={kpis.avgTalkRatioConsultant > 60 ? "#E0A048" : "#3DB87A"}
+          color={kpis?.avgTalkRatioConsultant > 60 ? "#E0A048" : "#3DB87A"}
         />
-      </div>
-
-      {/* Chart */}
-      <div
-        style={{
-          background: "#074A59",
-          border: "1px solid rgba(27,175,191,0.25)",
-          borderRadius: 8,
-          padding: "20px",
-          marginBottom: 24,
-        }}
-      >
-        <h3
-          style={{
-            color: "#F2F2F2",
-            fontSize: 15,
-            fontWeight: 600,
-            marginBottom: 16,
-            margin: "0 0 16px",
-          }}
-        >
-          Reuniões — Últimos 30 dias
-        </h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="rgba(27,175,191,0.1)"
-            />
-            <XAxis
-              dataKey="date"
-              tick={{ fill: "rgba(242,242,242,0.5)", fontSize: 11 }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fill: "rgba(242,242,242,0.5)", fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "#011C26",
-                border: "1px solid rgba(27,175,191,0.3)",
-                borderRadius: 8,
-                color: "#F2F2F2",
-              }}
-            />
-            <Legend
-              wrapperStyle={{ color: "rgba(242,242,242,0.6)", fontSize: 12 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="total"
-              name="Total"
-              stroke="#0B9EBF"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="churn"
-              name="Com Churn"
-              stroke="#E05252"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
       </div>
 
       <div
@@ -337,6 +212,11 @@ export default function DashboardPage() {
           >
             Últimas Análises
           </h3>
+          {analyses.length === 0 && (
+            <p style={{ color: "rgba(242,242,242,0.4)", fontSize: 13 }}>
+              Nenhuma análise realizada ainda.
+            </p>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {analyses.map((a) => {
               const badge = getAlertBadge(a.alerts);
@@ -425,6 +305,11 @@ export default function DashboardPage() {
           >
             Ranking de Consultores
           </h3>
+          {ranking.length === 0 && (
+            <p style={{ color: "rgba(242,242,242,0.4)", fontSize: 13 }}>
+              Nenhum consultor com análises concluídas ainda.
+            </p>
+          )}
           <div style={{ overflowX: "auto" }}>
             <table
               style={{

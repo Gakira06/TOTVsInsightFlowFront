@@ -1,6 +1,12 @@
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, AlertTriangle, TrendingUp, Zap, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertTriangle,
+  Zap,
+  Star,
+  SearchX,
+} from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -15,103 +21,16 @@ import StatusBadge from "../components/ui/StatusBadge";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { formatDateTime } from "../utils/formatDate";
 
-// Mock for demo
-const MOCK_ANALYSIS = {
-  id: "demo",
-  status: "COMPLETED",
-  clientId: "CLI001",
-  clientName: "Metalúrgica São Paulo",
-  consultantName: "Ricardo Alves",
-  createdAt: new Date().toISOString(),
-  executiveSummary:
-    "A reunião revelou insatisfação com o módulo de fiscal do Protheus atual, especialmente no que tange à apuração automática de ICMS-ST. O cliente demonstrou interesse em migrar para a versão mais recente e explorar o módulo RH. Mencionou que um concorrente (Senior Sistemas) foi avaliado brevemente. O diretor financeiro participou da reunião e demonstrou preocupação com o custo de implantação. Há uma oportunidade clara de upsell para o módulo RM Labore.",
-  nextBestAction:
-    "Preparar proposta de migração para Protheus 12.1.2310 com foco no módulo fiscal, incluindo demonstração técnica do apurador de ICMS-ST. Agendar reunião técnica com o gerente de TI.",
-  suggestedActions: [
-    "Agendar demo do módulo Fiscal",
-    "Enviar comparativo Protheus vs Senior",
-    "Propor projeto de migração em fases",
-  ],
-  talkRatioConsultant: 58.3,
-  talkRatioClient: 41.7,
-  alerts: [
-    {
-      id: "1",
-      type: "UPSELL_OPPORTUNITY",
-      severity: 4,
-      excerpt:
-        "Estávamos pensando em adotar o módulo de RH também, para centralizar tudo em uma plataforma só.",
-      detail: "Módulo RM Labore",
-      status: "OPEN",
-    },
-    {
-      id: "2",
-      type: "COMPETITOR_MENTIONED",
-      severity: 3,
-      excerpt:
-        "A gente chegou a olhar o Senior Sistemas, mas achamos o suporte deles mais fraco.",
-      detail: "Senior Sistemas",
-      status: "OPEN",
-    },
-    {
-      id: "3",
-      type: "CHURN_RISK",
-      severity: 2,
-      excerpt:
-        "Se o problema fiscal não for resolvido nos próximos 60 dias, vamos precisar reavaliar nossa parceria.",
-      detail: null,
-      status: "OPEN",
-    },
-  ],
-  products: [
-    { name: "Protheus", mentionType: "ALREADY_USES" },
-    { name: "RM", mentionType: "INTERESTED" },
-    { name: "Fluig", mentionType: "COMPLAINT" },
-    { name: "Carol", mentionType: "INTERESTED" },
-  ],
-  painPoints: [
-    {
-      description:
-        "Dificuldade na apuração automática de ICMS-ST no módulo fiscal",
-      urgency: 5,
-    },
-    {
-      description:
-        "Falta de integração entre Protheus e Fluig causando retrabalho manual",
-      urgency: 4,
-    },
-    {
-      description:
-        "Custo de implantação percebido como elevado pelo diretor financeiro",
-      urgency: 3,
-    },
-    {
-      description: "Suporte técnico com tempo de resposta acima do esperado",
-      urgency: 3,
-    },
-    {
-      description:
-        "Interface do Fluig considerada pouco intuitiva pela equipe operacional",
-      urgency: 2,
-    },
-  ],
-};
-
 export default function AnalysisDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentAnalysis, loading, fetchAnalysis } = useAnalysis();
+  const { currentAnalysis, loading, error, fetchAnalysis } = useAnalysis();
 
   useEffect(() => {
     fetchAnalysis(id).catch(() => {});
   }, [id]);
 
-  const data =
-    currentAnalysis && currentAnalysis.id === id
-      ? currentAnalysis
-      : id === "demo"
-        ? MOCK_ANALYSIS
-        : MOCK_ANALYSIS;
+  const data = currentAnalysis && currentAnalysis.id === id ? currentAnalysis : null;
 
   if (loading && !data) {
     return (
@@ -123,6 +42,40 @@ export default function AnalysisDetailPage() {
         }}
       >
         Carregando análise...
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div
+        style={{
+          color: "rgba(242,242,242,0.6)",
+          padding: 60,
+          textAlign: "center",
+        }}
+      >
+        <SearchX
+          size={36}
+          style={{ color: "rgba(242,242,242,0.3)", marginBottom: 12 }}
+        />
+        <p style={{ margin: "0 0 16px" }}>
+          {error || "Análise não encontrada."}
+        </p>
+        <button
+          onClick={() => navigate("/history")}
+          style={{
+            background: "transparent",
+            border: "1px solid rgba(27,175,191,0.3)",
+            borderRadius: 8,
+            color: "#1FAFBF",
+            padding: "8px 20px",
+            cursor: "pointer",
+            fontFamily: '"DM Sans", sans-serif',
+          }}
+        >
+          ← Voltar ao histórico
+        </button>
       </div>
     );
   }

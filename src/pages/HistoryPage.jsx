@@ -5,30 +5,24 @@ import StatusBadge from "../components/ui/StatusBadge";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { formatDateTime } from "../utils/formatDate";
 
-// Mock data
-const MOCK = {
-  data: [],
-  pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
-};
+const EMPTY_PAGINATION = { page: 1, limit: 10, total: 0, totalPages: 1 };
 
 export default function HistoryPage() {
   const navigate = useNavigate();
   const { analyses, pagination, fetchAnalyses, loading } = useAnalysis();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [displayData, setDisplayData] = useState(MOCK.data);
-  const [displayPagination, setDisplayPagination] = useState(MOCK.pagination);
+  const [displayData, setDisplayData] = useState([]);
+  const [displayPagination, setDisplayPagination] = useState(EMPTY_PAGINATION);
 
   useEffect(() => {
-    fetchAnalyses({ page, limit: 10 })
-      .then(() => {
-        if (analyses?.length) {
-          setDisplayData(analyses);
-          setDisplayPagination(pagination);
-        }
-      })
-      .catch(() => {});
+    fetchAnalyses({ page, limit: 10 }).catch(() => {});
   }, [page]);
+
+  useEffect(() => {
+    setDisplayData(analyses || []);
+    setDisplayPagination(pagination || EMPTY_PAGINATION);
+  }, [analyses, pagination]);
 
   const filtered = displayData.filter(
     (a) =>

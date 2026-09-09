@@ -3,9 +3,6 @@ import AlertCard from "../components/ui/AlertCard";
 import { useAlerts } from "../hooks/useAlerts";
 import { Filter } from "lucide-react";
 
-// Mock data for demo
-const MOCK_ALERTS = [];
-
 const TYPE_LABELS = {
   CHURN_RISK: "Churn Risk",
   UPSELL_OPPORTUNITY: "Upsell",
@@ -16,17 +13,17 @@ const TYPE_LABELS = {
 export default function AlertsPage() {
   const { alerts, unresolvedCount, fetchAlerts, resolveAlert, loading } =
     useAlerts();
-  const [displayAlerts, setDisplayAlerts] = useState(MOCK_ALERTS);
+  const [displayAlerts, setDisplayAlerts] = useState([]);
   const [filterType, setFilterType] = useState("");
   const [filterSeverity, setFilterSeverity] = useState("");
 
   useEffect(() => {
-    fetchAlerts({ status: "OPEN" })
-      .then(() => {
-        if (alerts?.length) setDisplayAlerts(alerts);
-      })
-      .catch(() => {});
+    fetchAlerts({ status: "OPEN" }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setDisplayAlerts(alerts || []);
+  }, [alerts]);
 
   const handleResolve = async (id) => {
     try {

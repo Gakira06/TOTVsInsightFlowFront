@@ -7,6 +7,7 @@ import ProcessingStatus from "../components/ui/ProcessingStatus";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { useAuth } from "../contexts/AuthContext";
 import { onMessage, offMessage } from "../services/websocket";
+import { analysisService } from "../services/api";
 import { truncateText } from "../utils/truncateText";
 
 const PROCESSING_STEPS = [
@@ -40,13 +41,20 @@ export default function NewAnalysisPage() {
   const [analysisId, setAnalysisId] = useState(null);
   const [processingStep, setProcessingStep] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingError, setProcessingError] = useState("");
   const fileInputRef = useRef();
 
-  // WebSocket listener for processing status
+  // WebSocket listener for processing status (real, vindo do backend)
   useEffect(() => {
     if (!analysisId) return;
     onMessage("new-analysis", (msg) => {
       if (msg.analysisId !== analysisId) return;
+      if (msg.step === "ERROR") {
+        setProcessingError(
+          msg.errorMessage || "A análise falhou durante o processamento.",
+        );
+        return;
+      }
       const stepIdx = STATUS_TO_STEP[msg.step] ?? processingStep;
       setProcessingStep(stepIdx);
       if (msg.step === "COMPLETED") {
@@ -56,17 +64,128 @@ export default function NewAnalysisPage() {
     return () => offMessage("new-analysis");
   }, [analysisId, navigate]);
 
-  const handleFileRead = (f) => {
+  // Fallback real (sem simulação): confere o status de verdade via API caso
+  // o WebSocket não entregue a notificação a tempo.
+  useEffect(() => {
+    if (!analysisId || !isProcessing) return;
+    const interval = setInterval(async () => {
+      try {
+        const analysis = await analysisService.getById(analysisId);
+        if (analysis.status === "COMPLETED") {
+          clearInterval(interval);
+          navigate(`/analysis/${analysisId}`);
+        } else if (analysis.status === "ERROR") {
+          clearInterval(interval);
+          setProcessingError(
+            analysis.errorMessage ||
+              "A análise falhou durante o processamento.",
+          );
+        }
+      } catch {
+        // ignora falhas pontuais de polling, tenta de novo no próximo ciclo
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [analysisId, isProcessing, navigate]);
+
+  const SUPPORTED_EXTENSIONS = [".txt", ".pdf", ".json", ".xlsx", ".xls"];
+  const MAX_TRANSCRIPTION_LENGTH = 200000;
+
+  const extractTextFromJson = (raw) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return raw; // não era JSON válido, usa o texto cru mesmo
+    }
+    if (typeof parsed === "string") return parsed;
+
+    const pickText = (item) =>
+      item?.text ?? item?.texto ?? item?.fala ?? item?.transcricao ?? null;
+    const pickSpeaker = (item) =>
+      item?.speaker ?? item?.falante ?? item?.autor ?? item?.nome ?? null;
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => {
+          if (typeof item === "string") return item;
+          const text = pickText(item);
+          const speaker = pickSpeaker(item);
+          if (text && speaker) return `${speaker}: ${text}`;
+          if (text) return text;
+          return JSON.stringify(item);
+        })
+        .join("\n");
+    }
+
+    // Busca case-insensitive por um campo de transcrição — cobre variações
+    // reais como ANON_TRANSCRICAO (formato usado pela TOTVS), transcricao,
+    // transcription, transcript etc.
+    const keys = Object.keys(parsed);
+    const transcriptKey = keys.find((k) => /transcri/i.test(k));
+    const genericTextKey = keys.find((k) =>
+      /^(text|texto|conteudo|content)$/i.test(k),
+    );
+    const matchKey = transcriptKey || genericTextKey;
+    if (matchKey && typeof parsed[matchKey] === "string") {
+      return parsed[matchKey];
+    }
+
+    return JSON.stringify(parsed, null, 2);
+  };
+
+  const extractTextFromSpreadsheet = async (f) => {
+    const XLSX = await import("xlsx");
+    const buffer = await f.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const blocks = workbook.SheetNames.map((sheetName) => {
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+      const lines = rows
+        .map((row) => row.filter((cell) => cell !== undefined && cell !== "").map(String))
+        .filter((row) => row.length > 0)
+        .map((row) => (row.length === 2 ? `${row[0]}: ${row[1]}` : row.join(" ")));
+      const heading = workbook.SheetNames.length > 1 ? `--- ${sheetName} ---\n` : "";
+      return heading + lines.join("\n");
+    });
+    return blocks.join("\n\n");
+  };
+
+  const handleFileRead = async (f) => {
     if (!f) return;
-    if (!f.name.endsWith(".txt") && !f.name.endsWith(".pdf")) {
-      setError("Formato inválido. Use arquivos .txt ou .pdf");
+    const nameLower = f.name.toLowerCase();
+    const ext = SUPPORTED_EXTENSIONS.find((e) => nameLower.endsWith(e));
+    if (!ext) {
+      setError(
+        `Formato inválido. Use arquivos ${SUPPORTED_EXTENSIONS.join(", ")}`,
+      );
       return;
     }
     setFile(f);
     setError("");
-    const reader = new FileReader();
-    reader.onload = (e) => setTranscriptionText(e.target.result);
-    reader.readAsText(f);
+
+    try {
+      const text =
+        ext === ".xlsx" || ext === ".xls"
+          ? await extractTextFromSpreadsheet(f)
+          : ext === ".json"
+            ? extractTextFromJson(await f.text())
+            : await f.text();
+
+      if (text.length > MAX_TRANSCRIPTION_LENGTH) {
+        setError(
+          `Transcrição muito longa: ${text.length.toLocaleString("pt-BR")} caracteres (limite: ${MAX_TRANSCRIPTION_LENGTH.toLocaleString("pt-BR")}). Reduza o conteúdo do arquivo.`,
+        );
+        setFile(null);
+        setTranscriptionText("");
+        return;
+      }
+
+      setTranscriptionText(text);
+    } catch (err) {
+      setError(`Não foi possível ler o arquivo: ${err.message}`);
+      setFile(null);
+    }
   };
 
   const handleDrop = (e) => {
@@ -96,21 +215,15 @@ export default function NewAnalysisPage() {
     }
     setLoading(true);
     setError("");
+    setProcessingError("");
     try {
       const result = await submitAnalysis({ clientId, transcriptionText });
       setAnalysisId(result.analysisId);
+      setProcessingStep(0);
       setIsProcessing(true);
       setStep(2);
-      // Simulate progress if no websocket
-      let s = 0;
-      const interval = setInterval(() => {
-        s++;
-        setProcessingStep(s);
-        if (s >= 4) {
-          clearInterval(interval);
-          setTimeout(() => navigate(`/analysis/${result.analysisId}`), 1000);
-        }
-      }, 2000);
+      // O progresso real chega via WebSocket (com fallback por polling da
+      // API real logo acima) — nada aqui é simulado.
     } catch (err) {
       setError(err.message || "Erro ao enviar análise");
     } finally {
@@ -234,7 +347,7 @@ export default function NewAnalysisPage() {
                       marginTop: 4,
                     }}
                   >
-                    Formatos: .txt, .pdf
+                    Formatos: .txt, .pdf, .json, .xlsx, .xls
                   </div>
                 </div>
               )}
@@ -242,7 +355,7 @@ export default function NewAnalysisPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.pdf"
+              accept=".txt,.pdf,.json,.xlsx,.xls"
               style={{ display: "none" }}
               onChange={(e) => handleFileRead(e.target.files[0])}
             />
@@ -478,37 +591,97 @@ export default function NewAnalysisPage() {
             textAlign: "center",
           }}
         >
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              border: "3px solid rgba(27,175,191,0.2)",
-              borderTop: "3px solid #0B9EBF",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-              margin: "0 auto 24px",
-            }}
-          />
-          <h3
-            style={{
-              color: "#F2F2F2",
-              fontSize: 20,
-              fontWeight: 600,
-              marginBottom: 8,
-              marginTop: 0,
-            }}
-          >
-            Processando com IA
-          </h3>
-          <p style={{ color: "rgba(242,242,242,0.6)", marginBottom: 32 }}>
-            Sua análise está sendo processada pela IA...
-          </p>
-          <div style={{ textAlign: "left", maxWidth: 320, margin: "0 auto" }}>
-            <ProcessingStatus
-              steps={PROCESSING_STEPS}
-              currentStep={processingStep}
-            />
-          </div>
+          {processingError ? (
+            <>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: "50%",
+                  background: "rgba(224,82,82,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 24px",
+                  fontSize: 28,
+                  color: "#E05252",
+                }}
+              >
+                ✕
+              </div>
+              <h3
+                style={{
+                  color: "#F2F2F2",
+                  fontSize: 20,
+                  fontWeight: 600,
+                  marginBottom: 8,
+                  marginTop: 0,
+                }}
+              >
+                Falha no processamento
+              </h3>
+              <p style={{ color: "#E05252", marginBottom: 32 }}>
+                {processingError}
+              </p>
+              <button
+                onClick={() => {
+                  setStep(0);
+                  setProcessingError("");
+                  setIsProcessing(false);
+                  setAnalysisId(null);
+                }}
+                style={{
+                  background: "#0B9EBF",
+                  border: "none",
+                  borderRadius: 8,
+                  color: "#F2F2F2",
+                  padding: "11px 28px",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: '"DM Sans", sans-serif',
+                }}
+              >
+                Tentar novamente
+              </button>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  border: "3px solid rgba(27,175,191,0.2)",
+                  borderTop: "3px solid #0B9EBF",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                  margin: "0 auto 24px",
+                }}
+              />
+              <h3
+                style={{
+                  color: "#F2F2F2",
+                  fontSize: 20,
+                  fontWeight: 600,
+                  marginBottom: 8,
+                  marginTop: 0,
+                }}
+              >
+                Processando com IA
+              </h3>
+              <p style={{ color: "rgba(242,242,242,0.6)", marginBottom: 32 }}>
+                Sua análise está sendo processada pela IA...
+              </p>
+              <div
+                style={{ textAlign: "left", maxWidth: 320, margin: "0 auto" }}
+              >
+                <ProcessingStatus
+                  steps={PROCESSING_STEPS}
+                  currentStep={processingStep}
+                />
+              </div>
+            </>
+          )}
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
